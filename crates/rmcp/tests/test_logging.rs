@@ -31,7 +31,7 @@ async fn test_logging_spec_compliance() -> anyhow::Result<()> {
                     LoggingLevel::Info,
                     serde_json::json!({
                         "message": "Server initiated message",
-                        "timestamp": chrono::Utc::now().to_rfc3339(),
+                        "timestamp": rmcp::task_manager::current_timestamp(),
                     }),
                 )
                 .with_logger("test_server"),
@@ -87,7 +87,7 @@ async fn test_logging_spec_compliance() -> anyhow::Result<()> {
 
         // Verify timestamp
         let timestamp = data["timestamp"].as_str().unwrap();
-        chrono::DateTime::parse_from_rfc3339(timestamp).expect("RFC3339 timestamp");
+        assert_rfc3339(timestamp);
 
         messages.clear();
     }
@@ -329,7 +329,7 @@ async fn test_logging_optional_fields() -> anyhow::Result<()> {
 
         // Verify timestamp
         let timestamp = data["timestamp"].as_str().unwrap();
-        chrono::DateTime::parse_from_rfc3339(timestamp).expect("RFC3339 timestamp");
+        assert_rfc3339(timestamp);
 
         messages.clear();
     }
@@ -341,4 +341,30 @@ async fn test_logging_optional_fields() -> anyhow::Result<()> {
     server_handle.await??;
 
     Ok(())
+}
+
+/// Asserts `YYYY-MM-DDTHH:MM:SS`, an optional fraction, then `+00:00`.
+fn assert_rfc3339(timestamp: &str) {
+    let (date_time, rest) = timestamp.split_at(timestamp.len().min(19));
+    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    let shape: Vec<bool> = date_time
+        .bytes()
+        .enumerate()
+        .map(|(i, b)| match i {
+            4 | 7 => b == b'-',
+            10 => b == b'T',
+            13 | 16 => b == b':',
+            _ => b.is_ascii_digit(),
+        })
+        .collect();
+    assert!(
+        shape.len() == 19 && shape.iter().all(|ok| *ok),
+        "{timestamp}"
+    );
+    let fraction = rest.strip_suffix("+00:00");
+    let fraction = fraction.unwrap_or_else(|| panic!("no UTC offset: {timestamp}"));
+    assert!(
+        fraction.is_empty() || fraction.strip_prefix('.').is_some_and(digits),
+        "{timestamp}"
+    );
 }

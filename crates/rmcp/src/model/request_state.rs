@@ -782,7 +782,8 @@ impl RequestStateCodec {
     }
 
     fn now_ms() -> i64 {
-        chrono::Utc::now().timestamp_millis()
+        let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+        since.map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX))
     }
 }
 

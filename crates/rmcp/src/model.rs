@@ -17,6 +17,7 @@ mod prompt;
 #[cfg(feature = "request-state")]
 mod request_state;
 mod resource;
+pub(crate) mod rfc3339;
 mod serde_impl;
 mod skill;
 mod task;
